@@ -1,0 +1,30 @@
+# 多相机同步配置文件
+
+cameras:
+  # 相机 0
+  camera_0:
+    device: /dev/video4
+    frame_id: camera_0_optical_frame
+    width: 640
+    height: 400
+    buffer_count: 2       # 缓冲区数量
+    camera_info_url: ""   # 相机内参文件路径 (oST 格式)
+    cpu_core: 2           # CPU 核心绑定
+    realtime_priority: 50
+
+  # 相机 1
+  camera_1:
+    device: /dev/video6
+    frame_id: camera_1_optical_frame
+    width: 640
+    height: 400
+    buffer_count: 2
+    camera_info_url: ""
+    cpu_core: 3
+    realtime_priority: 50
+
+  # 可以添加更多相机...
+  # camera_2:
+  #   device: /dev/video8
+  #   buffer_count: 2
+  #   ...

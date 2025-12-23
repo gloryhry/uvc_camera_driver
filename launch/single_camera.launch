@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- 单相机启动文件 -->
+  
+  <!-- 参数 -->
+  <arg name="device" default="/dev/video4" doc="相机设备路径"/>
+  <arg name="camera_name" default="camera" doc="相机名称 (用作命名空间)"/>
+  <arg name="frame_id" default="camera_optical_frame" doc="TF 坐标系名称"/>
+  <arg name="camera_info_url" default="" doc="相机内参文件路径 (oST 格式)"/>
+  
+  <arg name="width" default="640" doc="图像宽度"/>
+  <arg name="height" default="400" doc="图像高度"/>
+  <arg name="fps" default="240.0" doc="帧率"/>
+  
+  <arg name="buffer_count" default="2" doc="缓冲区数量 (2-4)"/>
+  <arg name="cpu_core" default="2" doc="CPU 核心绑定 (-1 表示不绑定)"/>
+  <arg name="realtime_priority" default="0" doc="实时优先级 (0 表示不设置, 1-99 为 SCHED_FIFO)"/>
+
+  <!-- 相机节点 -->
+  <node pkg="uvc_camera_driver" type="uvc_camera_node" name="$(arg camera_name)" output="screen">
+    <!-- 基本参数 -->
+    <param name="device" value="$(arg device)"/>
+    <param name="frame_id" value="$(arg frame_id)"/>
+    <param name="camera_info_url" value="$(arg camera_info_url)"/>
+    
+    <!-- 分辨率和帧率 -->
+    <param name="width" value="$(arg width)"/>
+    <param name="height" value="$(arg height)"/>
+    <param name="fps" value="$(arg fps)"/>
+    
+    <!-- 性能优化 -->
+    <param name="buffer_count" value="$(arg buffer_count)"/>
+    <param name="cpu_core" value="$(arg cpu_core)"/>
+    <param name="realtime_priority" value="$(arg realtime_priority)"/>
+    
+    <!-- 单相机模式 -->
+    <param name="multi_camera" value="false"/>
+  </node>
+
+</launch>

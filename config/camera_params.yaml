@@ -1,0 +1,28 @@
+# 单相机默认参数配置
+
+# 设备配置
+device: /dev/video4
+frame_id: camera_optical_frame
+camera_info_url: ""
+
+# 分辨率和帧率
+width: 640
+height: 400
+fps: 240.0
+
+# 性能优化
+cpu_core: -1          # CPU 核心绑定 (-1 表示不绑定)
+realtime_priority: 0  # 实时优先级 (0 表示不设置)
+
+# 图像参数默认值 (通过 dynamic_reconfigure 调整)
+# 注意：这些参数会被 dynamic_reconfigure 覆盖
+trigger_mode: 0           # 0=视频流, 1=外触发
+exposure_auto: false      # 关闭自动曝光
+exposure_absolute: 20     # 曝光时间
+white_balance_auto: false # 关闭自动白平衡
+white_balance_temperature: 4600  # 色温
+brightness: 0
+contrast: 50
+saturation: 50
+gamma: 348
+sharpness: 50

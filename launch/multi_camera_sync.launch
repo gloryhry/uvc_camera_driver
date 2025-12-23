@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- 多相机同步启动文件 -->
+  
+  <!-- 全局参数 -->
+  <arg name="cpu_core" default="2" doc="采集线程绑定的 CPU 核心"/>
+  <arg name="realtime_priority" default="50" doc="实时优先级"/>
+
+  <!-- 相机节点 (多相机模式) -->
+  <node pkg="uvc_camera_driver" type="uvc_camera_node" name="multi_camera" output="screen">
+    <!-- 多相机模式 -->
+    <param name="multi_camera" value="true"/>
+    
+    <!-- 性能优化 -->
+    <param name="cpu_core" value="$(arg cpu_core)"/>
+    <param name="realtime_priority" value="$(arg realtime_priority)"/>
+    
+    <!-- 相机配置 (通过 YAML 文件加载) -->
+    <rosparam command="load" file="$(find uvc_camera_driver)/config/multi_camera.yaml"/>
+  </node>
+
+</launch>
