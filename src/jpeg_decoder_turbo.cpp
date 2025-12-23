@@ -1,6 +1,15 @@
 #include "uvc_camera_driver/jpeg_decoder_turbo.h"
 #include <ros/ros.h>
 
+// 硬件加速解码器头文件 (条件包含)
+#ifdef HAS_ROCKCHIP_MPP
+#include "uvc_camera_driver/jpeg_decoder_mpp.h"
+#endif
+
+#ifdef HAS_NVJPEG
+#include "uvc_camera_driver/jpeg_decoder_nvjpeg.h"
+#endif
+
 namespace uvc_camera_driver {
 
 JpegDecoderTurbo::JpegDecoderTurbo()
@@ -53,13 +62,34 @@ bool JpegDecoderTurbo::decode(const uint8_t* src, size_t src_size,
 }
 
 // Factory function implementation
+// 优先级: Rockchip MPP > NVJPEG > libjpeg-turbo
 std::unique_ptr<JpegDecoder> createBestJpegDecoder() {
-#ifdef HAS_NVJPEG
-    // Try NVJPEG
-    // TODO: Implement NVJPEG detection
+    
+#ifdef HAS_ROCKCHIP_MPP
+    // 优先使用 RK3588 MPP 硬件解码
+    {
+        auto decoder = std::make_unique<JpegDecoderMpp>();
+        if (decoder->isAvailable()) {
+            ROS_INFO("Using JPEG decoder: %s", decoder->getName().c_str());
+            return decoder;
+        }
+        ROS_WARN("Rockchip MPP decoder not available, trying alternatives...");
+    }
 #endif
 
-    // Use libjpeg-turbo
+#ifdef HAS_NVJPEG
+    // 其次使用 NVIDIA GPU 加速
+    {
+        auto decoder = std::make_unique<JpegDecoderNvjpeg>();
+        if (decoder->isAvailable()) {
+            ROS_INFO("Using JPEG decoder: %s", decoder->getName().c_str());
+            return decoder;
+        }
+        ROS_WARN("NVJPEG decoder not available, trying alternatives...");
+    }
+#endif
+
+    // 回退到 libjpeg-turbo (CPU)
     auto decoder = std::make_unique<JpegDecoderTurbo>();
     if (decoder->isAvailable()) {
         ROS_INFO("Using JPEG decoder: %s", decoder->getName().c_str());
