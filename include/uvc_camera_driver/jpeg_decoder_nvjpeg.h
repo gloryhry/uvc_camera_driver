@@ -40,7 +40,13 @@ public:
 private:
     NvJPEGDecoder* decoder_;
     
-    // YUV 到 RGB 转换
+    // NV12 到 RGB 转换 (UV 交错)
+    void convertNV12ToRGB(const uint8_t* y_plane, const uint8_t* uv_plane,
+                          int width, int height,
+                          int y_stride, int uv_stride,
+                          uint8_t* rgb_data);
+    
+    // YUV420 到 RGB 转换 (UV 分离)
     void convertYUV420ToRGB(const uint8_t* y_plane, const uint8_t* u_plane, 
                             const uint8_t* v_plane, uint8_t* rgb_data,
                             int width, int height, 
