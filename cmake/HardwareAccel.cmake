@@ -115,33 +115,19 @@ if(ENABLE_JETSON_MULTIMEDIA AND PLATFORM_IS_JETSON)
         endif()
         
         # ======================================================================
-        # libjpeg 头文件选择
-        # JetPack 5.1.3+ 更新了系统 libjpeg，使用 Multimedia API 自带的 libjpeg-8b
-        # 头文件会导致 "JPEG parameter struct mismatch" 错误
-        # 解决方案：使用系统的 libjpeg 头文件
+        # libjpeg 头文件配置
+        # NvJpegDecoder.cpp 需要 NVIDIA 扩展的 jpeg_decompress_struct
+        # (包含 IsVendorbuf, pVendor_buf, fd 等字段)
+        # 必须使用 Jetson Multimedia API 自带的 libjpeg-8b 头文件
+        # 注意: 必须将 libjpeg-8b 放在包含路径最前面，优先于系统头文件
         # ======================================================================
         
-        # 检查系统 libjpeg 头文件
-        find_path(SYSTEM_JPEG_INCLUDE_DIR
-            NAMES jpeglib.h
-            HINTS
-                /usr/include
-                /usr/local/include
+        # Jetson libjpeg-8b 必须在最前面
+        list(INSERT HWACCEL_INCLUDE_DIRS 0
+            ${JETSON_MULTIMEDIA_API_PATH}/include/libjpeg-8b
+            ${JETSON_NVJPEG_INCLUDE_DIR}
         )
-        
-        if(SYSTEM_JPEG_INCLUDE_DIR)
-            message(STATUS "[HWAccel]   使用系统 libjpeg: ${SYSTEM_JPEG_INCLUDE_DIR}")
-            # 只包含 Jetson API 头文件，不包含其自带的 libjpeg-8b
-            list(APPEND HWACCEL_INCLUDE_DIRS 
-                ${JETSON_NVJPEG_INCLUDE_DIR}
-            )
-        else()
-            message(STATUS "[HWAccel]   使用 Jetson Multimedia API libjpeg-8b")
-            list(APPEND HWACCEL_INCLUDE_DIRS 
-                ${JETSON_NVJPEG_INCLUDE_DIR}
-                ${JETSON_MULTIMEDIA_API_PATH}/include/libjpeg-8b
-            )
-        endif()
+        message(STATUS "[HWAccel]   使用 Jetson libjpeg-8b: ${JETSON_MULTIMEDIA_API_PATH}/include/libjpeg-8b")
         
         # 核心 nvjpeg 库
         list(APPEND HWACCEL_LIBRARIES ${JETSON_NVJPEG_LIBRARY})
