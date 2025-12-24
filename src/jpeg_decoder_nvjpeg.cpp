@@ -12,6 +12,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <NvBuffer.h>
+#include <NvUtils.h>
 
 namespace uvc_camera_driver {
 
@@ -47,24 +48,19 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
     uint32_t decoded_width = 0;
     uint32_t decoded_height = 0;
     
-    // 创建输出缓冲区
-    int fd = -1;
+    // 输出缓冲区 - 使用 decodeToBuffer 而不是 decodeToFd
+    NvBuffer* buffer = nullptr;
     
     // 调用 NVJPG 硬件解码
-    int ret = decoder_->decodeToFd(fd, 
-                                   const_cast<unsigned char*>(src), 
-                                   src_size,
-                                   pixfmt, 
-                                   decoded_width, 
-                                   decoded_height);
+    int ret = decoder_->decodeToBuffer(&buffer,
+                                       const_cast<unsigned char*>(src),
+                                       src_size,
+                                       &pixfmt,
+                                       &decoded_width,
+                                       &decoded_height);
     
-    if (ret < 0) {
+    if (ret < 0 || !buffer) {
         ROS_WARN("Jetson NVJPG decode failed: %d", ret);
-        return false;
-    }
-
-    if (fd < 0) {
-        ROS_WARN("Jetson NVJPG returned invalid fd");
         return false;
     }
 
@@ -72,73 +68,62 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
     size_t required_size = decoded_width * decoded_height * 3;
     if (dst_size < required_size) {
         ROS_ERROR("Destination buffer too small: %zu < %zu", dst_size, required_size);
-        close(fd);
+        delete buffer;
         return false;
     }
 
-    // 创建 NvBuffer 用于访问解码数据
-    NvBuffer nvbuf(pixfmt, decoded_width, decoded_height, 0);
-    nvbuf.fill_buffer_plane_format(&pixfmt, &decoded_width, &decoded_height, &nvbuf.n_planes);
-    
-    // 使用 DMA fd 填充 NvBuffer
-    for (uint32_t i = 0; i < nvbuf.n_planes; i++) {
-        nvbuf.planes[i].fd = fd;
-        nvbuf.planes[i].data = nullptr;
-        nvbuf.planes[i].bytesused = 0;
-    }
-
-    // 映射缓冲区到 CPU 内存
-    ret = NvBufferMemMap(fd, 0, NvBufferMem_Read, (void**)&nvbuf.planes[0].data);
-    if (ret < 0 || !nvbuf.planes[0].data) {
-        ROS_WARN("NvBufferMemMap failed for plane 0: %d", ret);
-        close(fd);
-        return false;
-    }
-
-    // 同步缓存
-    NvBufferMemSyncForCpu(fd, 0, (void**)&nvbuf.planes[0].data);
-
-    // 对于多平面格式（NV12, YUV420），需要映射第二个平面
-    void* uv_data = nullptr;
-    if (pixfmt == V4L2_PIX_FMT_NV12M || pixfmt == V4L2_PIX_FMT_YUV420M) {
-        ret = NvBufferMemMap(fd, 1, NvBufferMem_Read, &uv_data);
-        if (ret < 0 || !uv_data) {
-            ROS_WARN("NvBufferMemMap failed for plane 1: %d", ret);
-            NvBufferMemUnMap(fd, 0, (void**)&nvbuf.planes[0].data);
-            close(fd);
-            return false;
+    // 从 NvBuffer 读取 YUV 数据并转换为 RGB
+    if (buffer->n_planes >= 2) {
+        // 映射内存用于 CPU 访问
+        for (uint32_t i = 0; i < buffer->n_planes; i++) {
+            if (buffer->planes[i].fd != -1) {
+                buffer->planes[i].mem = (unsigned char*)mmap(NULL,
+                    buffer->planes[i].length,
+                    PROT_READ | PROT_WRITE,
+                    MAP_SHARED,
+                    buffer->planes[i].fd,
+                    0);
+                if (buffer->planes[i].mem == MAP_FAILED) {
+                    ROS_ERROR("Failed to mmap plane %d", i);
+                    delete buffer;
+                    return false;
+                }
+            }
         }
-        NvBufferMemSyncForCpu(fd, 1, &uv_data);
-    }
 
-    // 获取步长信息
-    NvBufferParams params;
-    ret = NvBufferGetParams(fd, &params);
-    if (ret < 0) {
-        ROS_WARN("NvBufferGetParams failed: %d", ret);
-        if (uv_data) NvBufferMemUnMap(fd, 1, &uv_data);
-        NvBufferMemUnMap(fd, 0, (void**)&nvbuf.planes[0].data);
-        close(fd);
+        const uint8_t* y_plane = buffer->planes[0].data;
+        const uint8_t* uv_plane = buffer->planes[1].data;
+        int y_stride = buffer->planes[0].fmt.stride;
+        int uv_stride = buffer->planes[1].fmt.stride;
+        
+        // NV12 到 RGB 转换
+        convertNV12ToRGB(y_plane, uv_plane, decoded_width, decoded_height,
+                         y_stride, uv_stride, dst);
+
+        // 解除映射
+        for (uint32_t i = 0; i < buffer->n_planes; i++) {
+            if (buffer->planes[i].mem && buffer->planes[i].mem != MAP_FAILED) {
+                munmap(buffer->planes[i].mem, buffer->planes[i].length);
+            }
+        }
+    } else if (buffer->n_planes == 1) {
+        // 单平面格式 - 可能是 YUYV 或其他
+        const uint8_t* data = buffer->planes[0].data;
+        int stride = buffer->planes[0].fmt.stride;
+        
+        // 假设是 NV12 格式，Y 和 UV 连续存储
+        const uint8_t* y_plane = data;
+        const uint8_t* uv_plane = data + stride * decoded_height;
+        
+        convertNV12ToRGB(y_plane, uv_plane, decoded_width, decoded_height,
+                         stride, stride, dst);
+    } else {
+        ROS_WARN("Unexpected number of planes: %d", buffer->n_planes);
+        delete buffer;
         return false;
     }
 
-    int y_stride = params.pitch[0];
-    int uv_stride = params.pitch[1];
-
-    // YUV 到 RGB 转换
-    const uint8_t* y_plane = static_cast<uint8_t*>(nvbuf.planes[0].data);
-    const uint8_t* uv_plane = static_cast<uint8_t*>(uv_data);
-    
-    convertNV12ToRGB(y_plane, uv_plane, decoded_width, decoded_height,
-                     y_stride, uv_stride, dst);
-
-    // 解除映射并关闭
-    if (uv_data) {
-        NvBufferMemUnMap(fd, 1, &uv_data);
-    }
-    NvBufferMemUnMap(fd, 0, (void**)&nvbuf.planes[0].data);
-    NvBufferDestroy(fd);
-
+    delete buffer;
     return true;
 }
 
