@@ -10,6 +10,7 @@
 
 #include <ros/ros.h>
 #include <cstring>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <NvBuffer.h>
 #include <NvUtils.h>
@@ -48,7 +49,7 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
     uint32_t decoded_width = 0;
     uint32_t decoded_height = 0;
     
-    // 输出缓冲区 - 使用 decodeToBuffer 而不是 decodeToFd
+    // 输出缓冲区
     NvBuffer* buffer = nullptr;
     
     // 调用 NVJPG 硬件解码
@@ -72,44 +73,35 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
         return false;
     }
 
-    // 从 NvBuffer 读取 YUV 数据并转换为 RGB
+    // NvBuffer::planes[].data 应该已经包含可访问的数据
+    // 参考官方示例的使用方式
     if (buffer->n_planes >= 2) {
-        // 映射内存用于 CPU 访问
-        for (uint32_t i = 0; i < buffer->n_planes; i++) {
-            if (buffer->planes[i].fd != -1) {
-                buffer->planes[i].mem = (unsigned char*)mmap(NULL,
-                    buffer->planes[i].length,
-                    PROT_READ | PROT_WRITE,
-                    MAP_SHARED,
-                    buffer->planes[i].fd,
-                    0);
-                if (buffer->planes[i].mem == MAP_FAILED) {
-                    ROS_ERROR("Failed to mmap plane %d", i);
-                    delete buffer;
-                    return false;
-                }
-            }
-        }
-
+        // NV12 或 YUV420M 格式 - 多平面
         const uint8_t* y_plane = buffer->planes[0].data;
         const uint8_t* uv_plane = buffer->planes[1].data;
         int y_stride = buffer->planes[0].fmt.stride;
         int uv_stride = buffer->planes[1].fmt.stride;
         
+        if (!y_plane || !uv_plane) {
+            ROS_ERROR("Buffer planes data is null");
+            delete buffer;
+            return false;
+        }
+        
         // NV12 到 RGB 转换
         convertNV12ToRGB(y_plane, uv_plane, decoded_width, decoded_height,
                          y_stride, uv_stride, dst);
-
-        // 解除映射
-        for (uint32_t i = 0; i < buffer->n_planes; i++) {
-            if (buffer->planes[i].mem && buffer->planes[i].mem != MAP_FAILED) {
-                munmap(buffer->planes[i].mem, buffer->planes[i].length);
-            }
-        }
+                         
     } else if (buffer->n_planes == 1) {
-        // 单平面格式 - 可能是 YUYV 或其他
+        // 单平面格式 - Y 和 UV 连续存储
         const uint8_t* data = buffer->planes[0].data;
         int stride = buffer->planes[0].fmt.stride;
+        
+        if (!data) {
+            ROS_ERROR("Buffer plane data is null");
+            delete buffer;
+            return false;
+        }
         
         // 假设是 NV12 格式，Y 和 UV 连续存储
         const uint8_t* y_plane = data;
