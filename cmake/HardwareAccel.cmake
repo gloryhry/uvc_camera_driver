@@ -43,7 +43,6 @@ if(ENABLE_JETSON_MULTIMEDIA AND PLATFORM_IS_JETSON)
     find_library(JETSON_NVJPEG_LIBRARY
         NAMES nvjpeg
         HINTS
-            ${JETSON_MULTIMEDIA_API_PATH}/lib
             /usr/lib/aarch64-linux-gnu/tegra
             /usr/lib/aarch64-linux-gnu
     )
@@ -64,27 +63,66 @@ if(ENABLE_JETSON_MULTIMEDIA AND PLATFORM_IS_JETSON)
             /usr/lib/aarch64-linux-gnu
     )
     
+    # 查找核心的 Jetson 库
+    find_library(NVUTILS_LIBRARY
+        NAMES nvv4l2 v4l2
+        HINTS
+            /usr/lib/aarch64-linux-gnu/tegra
+            /usr/lib/aarch64-linux-gnu
+    )
+    
     if(JETSON_NVJPEG_INCLUDE_DIR AND JETSON_NVJPEG_LIBRARY)
         set(HAS_JETSON_MULTIMEDIA ON)
         message(STATUS "[HWAccel] Jetson Multimedia API 已找到")
         message(STATUS "[HWAccel]   头文件: ${JETSON_NVJPEG_INCLUDE_DIR}")
         message(STATUS "[HWAccel]   库文件: ${JETSON_NVJPEG_LIBRARY}")
         
+        # 包含目录
         list(APPEND HWACCEL_INCLUDE_DIRS 
             ${JETSON_NVJPEG_INCLUDE_DIR}
             ${JETSON_MULTIMEDIA_API_PATH}/include/libjpeg-8b
         )
+        
+        # 核心 nvjpeg 库
         list(APPEND HWACCEL_LIBRARIES ${JETSON_NVJPEG_LIBRARY})
         
+        # NvBufSurface 库
         if(NVBUFSURFACE_LIBRARY)
             list(APPEND HWACCEL_LIBRARIES ${NVBUFSURFACE_LIBRARY})
+            message(STATUS "[HWAccel]   nvbufsurface: ${NVBUFSURFACE_LIBRARY}")
         endif()
         
+        # NvBufSurfTransform 库
         if(NVBUFSURFTRANSFORM_LIBRARY)
             list(APPEND HWACCEL_LIBRARIES ${NVBUFSURFTRANSFORM_LIBRARY})
+            message(STATUS "[HWAccel]   nvbufsurftransform: ${NVBUFSURFTRANSFORM_LIBRARY}")
         endif()
         
-        list(APPEND HWACCEL_SOURCES "src/jpeg_decoder_nvjpeg.cpp")
+        # Jetson Multimedia API 的 NvJpegDecoder 实现需要这些源文件
+        set(JETSON_NVJPEG_CLASS_SRC "${JETSON_MULTIMEDIA_API_PATH}/samples/common/classes/NvJpegDecoder.cpp")
+        set(JETSON_NVBUFFER_SRC "${JETSON_MULTIMEDIA_API_PATH}/samples/common/classes/NvBuffer.cpp")
+        set(JETSON_NVELEMENT_SRC "${JETSON_MULTIMEDIA_API_PATH}/samples/common/classes/NvElement.cpp")
+        set(JETSON_NVELEM_PROFILER_SRC "${JETSON_MULTIMEDIA_API_PATH}/samples/common/classes/NvElementProfiler.cpp")
+        set(JETSON_NVLOGGING_SRC "${JETSON_MULTIMEDIA_API_PATH}/samples/common/classes/NvLogging.cpp")
+        
+        if(EXISTS ${JETSON_NVJPEG_CLASS_SRC})
+            list(APPEND HWACCEL_SOURCES 
+                "src/jpeg_decoder_nvjpeg.cpp"
+                ${JETSON_NVJPEG_CLASS_SRC}
+                ${JETSON_NVBUFFER_SRC}
+                ${JETSON_NVELEMENT_SRC}
+                ${JETSON_NVELEM_PROFILER_SRC}
+                ${JETSON_NVLOGGING_SRC}
+            )
+            list(APPEND HWACCEL_INCLUDE_DIRS 
+                ${JETSON_MULTIMEDIA_API_PATH}/samples/common/classes
+            )
+            message(STATUS "[HWAccel]   NvJpegDecoder 源文件: ${JETSON_NVJPEG_CLASS_SRC}")
+        else()
+            message(WARNING "[HWAccel]   NvJpegDecoder.cpp 未找到: ${JETSON_NVJPEG_CLASS_SRC}")
+            list(APPEND HWACCEL_SOURCES "src/jpeg_decoder_nvjpeg.cpp")
+        endif()
+        
         add_definitions(-DHAS_JETSON_MULTIMEDIA)
     else()
         message(STATUS "[HWAccel] Jetson Multimedia API 未找到")
