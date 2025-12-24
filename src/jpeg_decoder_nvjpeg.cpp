@@ -41,8 +41,9 @@ JpegDecoderNvjpeg::~JpegDecoderNvjpeg() {
 bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
                                uint8_t* dst, size_t dst_size,
                                int width, int height) {
+#if defined(JETPACK_HAS_NVJPEG_BUG)
     // ===========================================================================
-    // JetPack 5.1.2+ Bug Workaround:
+    // JetPack 5.1.2 及以下版本 Bug Workaround:
     // NvJPEGDecoder 在连续解码相同分辨率的图像时会返回第一帧的缓存数据
     // 解决方案：每次解码前重新创建解码器实例
     // 参考: https://forums.developer.nvidia.com/t/nvjpegdecoder-returns-same-frame
@@ -59,6 +60,12 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
         ROS_ERROR("Failed to recreate NvJPEGDecoder");
         return false;
     }
+#else
+    // JetPack 5.1.3+ 版本已修复 Bug，直接复用解码器实例
+    if (!decoder_) {
+        return false;
+    }
+#endif
 
     // 解码参数
     uint32_t pixfmt = 0;

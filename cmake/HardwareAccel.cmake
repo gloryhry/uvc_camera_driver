@@ -77,6 +77,43 @@ if(ENABLE_JETSON_MULTIMEDIA AND PLATFORM_IS_JETSON)
         message(STATUS "[HWAccel]   头文件: ${JETSON_NVJPEG_INCLUDE_DIR}")
         message(STATUS "[HWAccel]   库文件: ${JETSON_NVJPEG_LIBRARY}")
         
+        # ======================================================================
+        # JetPack 版本检测 - 用于处理 NvJPEGDecoder Bug
+        # JetPack 5.1.2 及以下版本存在解码器缓存 Bug，需要每帧重建解码器
+        # JetPack 5.1.3 及以上版本已修复
+        # ======================================================================
+        set(JETPACK_VERSION_FILE "/etc/nv_tegra_release")
+        if(EXISTS ${JETPACK_VERSION_FILE})
+            file(READ ${JETPACK_VERSION_FILE} TEGRA_RELEASE_CONTENT)
+            # 解析格式: # R35 (release), REVISION: 4.1, ...
+            # R35.4.1 = JetPack 5.1.2, R35.5.0 = JetPack 5.1.3
+            string(REGEX MATCH "R([0-9]+) \\(release\\), REVISION: ([0-9]+)\\.([0-9]+)" 
+                   TEGRA_VERSION_MATCH "${TEGRA_RELEASE_CONTENT}")
+            if(TEGRA_VERSION_MATCH)
+                set(L4T_MAJOR ${CMAKE_MATCH_1})
+                set(L4T_MINOR ${CMAKE_MATCH_2})
+                set(L4T_PATCH ${CMAKE_MATCH_3})
+                message(STATUS "[HWAccel]   L4T 版本: R${L4T_MAJOR}.${L4T_MINOR}.${L4T_PATCH}")
+                
+                # 计算版本号用于比较 (R35.4.1 -> 350401)
+                math(EXPR L4T_VERSION_NUM "${L4T_MAJOR} * 10000 + ${L4T_MINOR} * 100 + ${L4T_PATCH}")
+                
+                # R35.5.0 (JetPack 5.1.3) = 350500，此版本及以上已修复 Bug
+                if(L4T_VERSION_NUM LESS 350500)
+                    message(STATUS "[HWAccel]   检测到 JetPack < 5.1.3，启用 NvJPEGDecoder Bug 修复")
+                    add_definitions(-DJETPACK_HAS_NVJPEG_BUG)
+                else()
+                    message(STATUS "[HWAccel]   检测到 JetPack >= 5.1.3，NvJPEGDecoder Bug 已修复")
+                endif()
+            else()
+                message(STATUS "[HWAccel]   无法解析 L4T 版本，默认启用 NvJPEGDecoder Bug 修复")
+                add_definitions(-DJETPACK_HAS_NVJPEG_BUG)
+            endif()
+        else()
+            message(STATUS "[HWAccel]   未找到 nv_tegra_release，默认启用 NvJPEGDecoder Bug 修复")
+            add_definitions(-DJETPACK_HAS_NVJPEG_BUG)
+        endif()
+        
         # 包含目录
         list(APPEND HWACCEL_INCLUDE_DIRS 
             ${JETSON_NVJPEG_INCLUDE_DIR}
