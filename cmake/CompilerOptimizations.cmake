@@ -28,24 +28,24 @@ if(ENABLE_NATIVE_ARCH)
     
 elseif(PLATFORM_IS_RK3588)
     # RK3588: ARM Cortex-A76 (大核) + Cortex-A55 (小核)
+    # AArch64 上 NEON/SIMD 默认启用，不需要 -mfpu 选项
     message(STATUS "[Compiler] 使用 RK3588 优化配置 (Cortex-A76 + A55)")
     set(PLATFORM_ARCH_FLAGS "-mcpu=cortex-a76 -mtune=cortex-a76")
     
     if(ENABLE_NEON)
-        list(APPEND PLATFORM_ARCH_FLAGS "-mfpu=neon-fp-armv8")
         add_definitions(-DHAS_NEON)
-        message(STATUS "[Compiler] NEON 指令集已启用")
+        message(STATUS "[Compiler] NEON 指令集已启用 (AArch64 默认)")
     endif()
     
 elseif(PLATFORM_IS_JETSON)
     # Jetson Orin NX: ARM Cortex-A78AE
+    # AArch64 上 NEON/SIMD 默认启用，不需要 -mfpu 选项
     message(STATUS "[Compiler] 使用 Jetson Orin NX 优化配置 (Cortex-A78AE)")
     set(PLATFORM_ARCH_FLAGS "-mcpu=cortex-a78ae")
     
     if(ENABLE_NEON)
-        list(APPEND PLATFORM_ARCH_FLAGS "-mfpu=neon-fp-armv8")
         add_definitions(-DHAS_NEON)
-        message(STATUS "[Compiler] NEON 指令集已启用")
+        message(STATUS "[Compiler] NEON 指令集已启用 (AArch64 默认)")
     endif()
     
 elseif(PLATFORM_IS_X86_64)
@@ -72,13 +72,13 @@ elseif(PLATFORM_IS_X86_64)
     
 elseif(PLATFORM_IS_ARM64)
     # 通用 ARM64 优化
+    # AArch64 上 NEON/SIMD 默认启用，不需要 -mfpu 选项
     message(STATUS "[Compiler] 使用通用 ARM64 优化配置")
     set(PLATFORM_ARCH_FLAGS "-mcpu=cortex-a53")
     
     if(ENABLE_NEON)
-        list(APPEND PLATFORM_ARCH_FLAGS "-mfpu=neon-fp-armv8")
         add_definitions(-DHAS_NEON)
-        message(STATUS "[Compiler] NEON 指令集已启用")
+        message(STATUS "[Compiler] NEON 指令集已启用 (AArch64 默认)")
     endif()
     
 elseif(PLATFORM_IS_ARM32)
