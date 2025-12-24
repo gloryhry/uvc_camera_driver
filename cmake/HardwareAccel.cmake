@@ -9,9 +9,19 @@
 # ==============================================================================
 
 # 用户可配置选项
-option(ENABLE_JETSON_MULTIMEDIA "启用 Jetson Multimedia API 硬件加速" ON)
+# 注意: Jetson Multimedia API 在 JetPack 5.1.3 存在已知 Bug，默认禁用
+option(ENABLE_JETSON_MULTIMEDIA "启用 Jetson Multimedia API 硬件加速" OFF)
 option(ENABLE_NVJPEG_CUDA "启用 CUDA nvjpeg 硬件加速 (仅 x86)" ON)
 option(ENABLE_ROCKCHIP_MPP "启用 Rockchip MPP 硬件加速" ON)
+option(FORCE_SOFTWARE_JPEG "强制使用 TurboJPEG 软件解码，跳过所有硬件加速" OFF)
+
+# 如果强制使用软件解码，禁用所有硬件加速选项
+if(FORCE_SOFTWARE_JPEG)
+    message(STATUS "[HWAccel] 强制使用软件解码模式 (TurboJPEG)")
+    set(ENABLE_JETSON_MULTIMEDIA OFF)
+    set(ENABLE_NVJPEG_CUDA OFF)
+    set(ENABLE_ROCKCHIP_MPP OFF)
+endif()
 
 # 初始化变量
 set(HAS_JETSON_MULTIMEDIA OFF)
