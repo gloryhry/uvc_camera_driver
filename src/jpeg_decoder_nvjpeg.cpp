@@ -15,6 +15,7 @@
 #include <NvBuffer.h>
 #include <NvUtils.h>
 
+
 namespace uvc_camera_driver {
 
 JpegDecoderNvjpeg::JpegDecoderNvjpeg()
@@ -40,7 +41,22 @@ JpegDecoderNvjpeg::~JpegDecoderNvjpeg() {
 bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
                                uint8_t* dst, size_t dst_size,
                                int width, int height) {
+    // ===========================================================================
+    // JetPack 5.1.2+ Bug Workaround:
+    // NvJPEGDecoder 在连续解码相同分辨率的图像时会返回第一帧的缓存数据
+    // 解决方案：每次解码前重新创建解码器实例
+    // 参考: https://forums.developer.nvidia.com/t/nvjpegdecoder-returns-same-frame
+    // ===========================================================================
+    
+    // 重新创建解码器实例以避免缓存 Bug
+    if (decoder_) {
+        delete decoder_;
+        decoder_ = nullptr;
+    }
+    decoder_ = NvJPEGDecoder::createJPEGDecoder("jpeg_decoder");
+    
     if (!decoder_) {
+        ROS_ERROR("Failed to recreate NvJPEGDecoder");
         return false;
     }
 
@@ -74,7 +90,7 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
     }
 
     // NvBuffer::planes[].data 应该已经包含可访问的数据
-    // 参考官方示例的使用方式
+    // decodeToBuffer 返回的是软件缓冲区，已通过重建解码器解决缓存 Bug
     if (buffer->n_planes >= 2) {
         // NV12 或 YUV420M 格式 - 多平面
         const uint8_t* y_plane = buffer->planes[0].data;
