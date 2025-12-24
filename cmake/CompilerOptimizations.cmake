@@ -39,10 +39,24 @@ elseif(PLATFORM_IS_RK3588)
     
 elseif(PLATFORM_IS_JETSON)
     # Jetson Orin NX: ARM Cortex-A78AE
-    # AArch64 上 NEON/SIMD 默认启用，不需要 -mfpu 选项
-    message(STATUS "[Compiler] 使用 Jetson Orin NX 优化配置 (Cortex-A78AE)")
-    set(PLATFORM_ARCH_FLAGS "-mcpu=cortex-a78ae")
+    # 注意: GCC 9.x 不支持 cortex-a78ae，使用 native 让编译器自动检测
+    # 或使用 cortex-a76 作为兼容选项
+    message(STATUS "[Compiler] 使用 Jetson 优化配置")
     
+    # 检测编译器是否支持 cortex-a78ae
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag("-mcpu=cortex-a78ae" COMPILER_SUPPORTS_A78AE)
+    
+    if(COMPILER_SUPPORTS_A78AE)
+        set(PLATFORM_ARCH_FLAGS "-mcpu=cortex-a78ae")
+        message(STATUS "[Compiler] 使用 -mcpu=cortex-a78ae")
+    else()
+        # 回退到 native (让编译器自动检测最佳配置)
+        set(PLATFORM_ARCH_FLAGS "-mcpu=native")
+        message(STATUS "[Compiler] GCC 不支持 cortex-a78ae，使用 -mcpu=native")
+    endif()
+    
+    # AArch64 上 NEON/SIMD 默认启用
     if(ENABLE_NEON)
         add_definitions(-DHAS_NEON)
         message(STATUS "[Compiler] NEON 指令集已启用 (AArch64 默认)")
