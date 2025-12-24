@@ -110,12 +110,8 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
         return false;
     }
     
-    // 检查第一个平面的数据是否有效（防止绿色帧）
-    if (buffer->planes[0].bytesused == 0) {
-        ROS_WARN("Buffer plane 0 has no data (bytesused=0)");
-        delete buffer;
-        return false;
-    }
+    // 注意: decodeToBuffer 返回的是软件缓冲区，bytesused 字段不被设置
+    // 数据有效性将在后续通过 Y 平面采样检查来验证
 
     // NvBuffer::planes[].data 应该已经包含可访问的数据
     // decodeToBuffer 返回的是软件缓冲区，已通过重建解码器解决缓存 Bug
