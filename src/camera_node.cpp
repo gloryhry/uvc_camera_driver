@@ -228,8 +228,11 @@ void CameraNode::processAndPublish(const FrameData& frame, const ros::Time& stam
 
 void CameraNode::publishImage(const uint8_t* rgb_data, int width, int height,
                               const ros::Time& stamp) {
+    // Apply time offset for trigger calibration
+    ros::Time adjusted_stamp = stamp + ros::Duration(current_config_.time_offset);
+    
     sensor_msgs::Image msg;
-    msg.header.stamp = stamp;
+    msg.header.stamp = adjusted_stamp;
     msg.header.frame_id = frame_id_;
     msg.width = width;
     msg.height = height;
@@ -493,8 +496,12 @@ void MultiCameraNode::captureLoop() {
             if (jpeg_decoder_->decode(static_cast<const uint8_t*>(frame.data), frame.size,
                                       rgb_buffer_.data(), rgb_buffer_.size(),
                                       width, height)) {
+                // Apply time offset for trigger calibration
+                ros::Time adjusted_stamp = stamp + 
+                    ros::Duration(resource.current_config.time_offset);
+                
                 sensor_msgs::Image img_msg;
-                img_msg.header.stamp = stamp;
+                img_msg.header.stamp = adjusted_stamp;
                 img_msg.header.frame_id = resource.frame_id;
                 img_msg.width = width;
                 img_msg.height = height;
