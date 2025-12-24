@@ -114,11 +114,34 @@ if(ENABLE_JETSON_MULTIMEDIA AND PLATFORM_IS_JETSON)
             add_definitions(-DJETPACK_HAS_NVJPEG_BUG)
         endif()
         
-        # 包含目录
-        list(APPEND HWACCEL_INCLUDE_DIRS 
-            ${JETSON_NVJPEG_INCLUDE_DIR}
-            ${JETSON_MULTIMEDIA_API_PATH}/include/libjpeg-8b
+        # ======================================================================
+        # libjpeg 头文件选择
+        # JetPack 5.1.3+ 更新了系统 libjpeg，使用 Multimedia API 自带的 libjpeg-8b
+        # 头文件会导致 "JPEG parameter struct mismatch" 错误
+        # 解决方案：使用系统的 libjpeg 头文件
+        # ======================================================================
+        
+        # 检查系统 libjpeg 头文件
+        find_path(SYSTEM_JPEG_INCLUDE_DIR
+            NAMES jpeglib.h
+            HINTS
+                /usr/include
+                /usr/local/include
         )
+        
+        if(SYSTEM_JPEG_INCLUDE_DIR)
+            message(STATUS "[HWAccel]   使用系统 libjpeg: ${SYSTEM_JPEG_INCLUDE_DIR}")
+            # 只包含 Jetson API 头文件，不包含其自带的 libjpeg-8b
+            list(APPEND HWACCEL_INCLUDE_DIRS 
+                ${JETSON_NVJPEG_INCLUDE_DIR}
+            )
+        else()
+            message(STATUS "[HWAccel]   使用 Jetson Multimedia API libjpeg-8b")
+            list(APPEND HWACCEL_INCLUDE_DIRS 
+                ${JETSON_NVJPEG_INCLUDE_DIR}
+                ${JETSON_MULTIMEDIA_API_PATH}/include/libjpeg-8b
+            )
+        endif()
         
         # 核心 nvjpeg 库
         list(APPEND HWACCEL_LIBRARIES ${JETSON_NVJPEG_LIBRARY})
