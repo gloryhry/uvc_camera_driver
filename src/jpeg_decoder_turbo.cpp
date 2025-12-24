@@ -6,7 +6,7 @@
 #include "uvc_camera_driver/jpeg_decoder_mpp.h"
 #endif
 
-#ifdef HAS_NVJPEG
+#if defined(HAS_JETSON_MULTIMEDIA) || defined(HAS_NVJPEG_CUDA)
 #include "uvc_camera_driver/jpeg_decoder_nvjpeg.h"
 #endif
 
@@ -77,15 +77,15 @@ std::unique_ptr<JpegDecoder> createBestJpegDecoder() {
     }
 #endif
 
-#ifdef HAS_NVJPEG
-    // 其次使用 NVIDIA GPU 加速
+#if defined(HAS_JETSON_MULTIMEDIA) || defined(HAS_NVJPEG_CUDA)
+    // 其次使用 NVIDIA GPU/NVJPG 硬件加速
     {
         auto decoder = std::make_unique<JpegDecoderNvjpeg>();
         if (decoder->isAvailable()) {
             ROS_INFO("Using JPEG decoder: %s", decoder->getName().c_str());
             return decoder;
         }
-        ROS_WARN("NVJPEG decoder not available, trying alternatives...");
+        ROS_WARN("NVIDIA decoder not available, trying alternatives...");
     }
 #endif
 

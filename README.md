@@ -17,8 +17,8 @@
 | 平台 | 架构 | 编译优化 | 硬件加速 |
 |-----|-----|---------|---------|
 | **RK3588** | ARM64 | Cortex-A76 + NEON | MPP JPEG 解码 |
-| **Jetson Orin NX** | ARM64 | Cortex-A78AE + NEON | NVJPEG (CUDA) |
-| **x86_64 桌面** | x86-64 | SSE4.2 + AVX/AVX2 | NVJPEG (可选) |
+| **Jetson Orin NX** | ARM64 | Cortex-A78AE + NEON | Multimedia API (NVJPG) |
+| **x86_64 + NVIDIA GPU** | x86-64 | SSE4.2 + AVX/AVX2 | CUDA nvjpeg |
 | **ARM64 通用** | ARM64 | Cortex-A53 + NEON | 无 |
 | **ARM32** | ARM | Cortex-A7 + NEON | 无 |
 
@@ -38,9 +38,16 @@ sudo apt install ros-noetic-image-transport ros-noetic-cv-bridge \
 sudo apt install librockchip-mpp-dev librockchip-mpp1
 ```
 
-### NVIDIA GPU 加速（可选）
+### Jetson Multimedia API（Jetson 设备）
 
-需要安装 CUDA Toolkit（Jetson 设备自带，x86 需手动安装）。
+Jetson 设备自带 Multimedia API，位于 `/usr/src/jetson_multimedia_api`。
+
+### CUDA nvjpeg（x86 NVIDIA GPU）
+
+```bash
+# 安装 CUDA Toolkit (Ubuntu)
+sudo apt install nvidia-cuda-toolkit
+```
 
 ## 编译
 
@@ -75,7 +82,8 @@ catkin_make --cmake-args -DENABLE_ROCKCHIP_MPP=OFF
 | `ENABLE_NEON` | ON | ARM 平台启用 NEON 指令集 |
 | `ENABLE_AVX` | ON | x86 平台启用 AVX 指令集 |
 | `ENABLE_LTO` | OFF | 启用链接时优化 |
-| `ENABLE_NVJPEG` | ON | 启用 NVIDIA NVJPEG 加速 |
+| `ENABLE_JETSON_MULTIMEDIA` | ON | 启用 Jetson Multimedia API |
+| `ENABLE_NVJPEG_CUDA` | ON | 启用 CUDA nvjpeg (x86 GPU) |
 | `ENABLE_ROCKCHIP_MPP` | ON | 启用 RK3588 MPP 加速 |
 
 ## 使用
@@ -126,8 +134,9 @@ rosrun rqt_reconfigure rqt_reconfigure
 系统会自动选择最佳的 JPEG 解码器：
 
 1. **Rockchip MPP** (RK3588) - 硬件 VPU 解码
-2. **NVJPEG** (Jetson/NVIDIA GPU) - CUDA 加速
-3. **libjpeg-turbo** (回退) - CPU SIMD 优化
+2. **Jetson Multimedia API** (Jetson) - NVJPG 硬件单元
+3. **CUDA nvjpeg** (x86 NVIDIA GPU) - GPU 加速
+4. **libjpeg-turbo** (回退) - CPU SIMD 优化
 
 ## 相机内参格式 (oST v5.0)
 
