@@ -88,10 +88,31 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
         return false;
     }
 
+    // 验证解码尺寸
+    if (decoded_width == 0 || decoded_height == 0) {
+        ROS_WARN("Invalid decoded dimensions: %ux%u", decoded_width, decoded_height);
+        delete buffer;
+        return false;
+    }
+
     // 检查输出缓冲区大小
     size_t required_size = decoded_width * decoded_height * 3;
     if (dst_size < required_size) {
         ROS_ERROR("Destination buffer too small: %zu < %zu", dst_size, required_size);
+        delete buffer;
+        return false;
+    }
+    
+    // 验证 buffer planes 是否有效
+    if (buffer->n_planes == 0) {
+        ROS_WARN("Buffer has no planes");
+        delete buffer;
+        return false;
+    }
+    
+    // 检查第一个平面的数据是否有效（防止绿色帧）
+    if (buffer->planes[0].bytesused == 0) {
+        ROS_WARN("Buffer plane 0 has no data (bytesused=0)");
         delete buffer;
         return false;
     }
@@ -107,6 +128,22 @@ bool JpegDecoderNvjpeg::decode(const uint8_t* src, size_t src_size,
         
         if (!y_plane || !uv_plane) {
             ROS_ERROR("Buffer planes data is null");
+            delete buffer;
+            return false;
+        }
+        
+        // 快速检查 Y 平面数据是否有效（采样检测绿色帧）
+        // 如果 Y 数据全为 0，会导致绿色帧输出
+        bool has_valid_data = false;
+        for (uint32_t i = 0; i < decoded_height && !has_valid_data; i += decoded_height / 4) {
+            for (uint32_t j = 0; j < decoded_width && !has_valid_data; j += decoded_width / 4) {
+                if (y_plane[i * y_stride + j] != 0) {
+                    has_valid_data = true;
+                }
+            }
+        }
+        if (!has_valid_data) {
+            ROS_WARN("Detected invalid frame (Y plane all zeros), skipping");
             delete buffer;
             return false;
         }
