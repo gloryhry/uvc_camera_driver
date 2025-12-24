@@ -35,6 +35,9 @@
     
     <!-- 单相机模式 -->
     <param name="multi_camera" value="false"/>
+    
+    <!-- 触发模式: 0=视频流, 1=外触发 -->
+    <param name="trigger_mode" value="1"/>
   </node>
 
 </launch>
