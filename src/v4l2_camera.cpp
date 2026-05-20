@@ -376,9 +376,18 @@ bool V4L2Camera::getControl(uint32_t id, int32_t& value) {
 }
 
 bool V4L2Camera::setTriggerMode(bool external) {
-    // Control trigger mode via zoom_absolute
-    // 0 = video stream mode, 1 = external trigger mode
-    return setControl(V4L2_CID_ZOOM_ABSOLUTE, external ? 1 : 0);
+    // 通过 zoom_absolute 控制触发模式：
+    // 0 = 视频流模式，1 = 外触发模式。
+    // 该相机进入外触发模式前必须先执行 0 -> 1 的复位/使能流程。
+    if (!external) {
+        return setControl(V4L2_CID_ZOOM_ABSOLUTE, 0);
+    }
+
+    if (!setControl(V4L2_CID_ZOOM_ABSOLUTE, 0)) {
+        return false;
+    }
+
+    return setControl(V4L2_CID_ZOOM_ABSOLUTE, 1);
 }
 
 }  // namespace uvc_camera_driver

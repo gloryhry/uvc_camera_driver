@@ -162,6 +162,12 @@ void CameraNode::spin() {
         return;
     }
 
+    // 部分相机会在 STREAMON 后重置触发控制，外触发启动后补发一次 0 -> 1。
+    if (current_config_.trigger_mode == 1 && !camera_->setTriggerMode(true)) {
+        ROS_ERROR("Failed to enable external trigger mode after stream start");
+        return;
+    }
+
     running_.store(true);
 
     // Create capture thread
@@ -442,6 +448,16 @@ void MultiCameraNode::spin() {
     if (!sync_manager_.startAllCameras()) {
         ROS_ERROR("Failed to start all cameras");
         return;
+    }
+
+    // 部分相机会在 STREAMON 后重置触发控制，外触发启动后补发一次 0 -> 1。
+    for (auto& pair : camera_resources_) {
+        if (pair.second.current_config.trigger_mode == 1 &&
+            !pair.second.camera->setTriggerMode(true)) {
+            ROS_ERROR("Failed to enable external trigger mode for camera %s after stream start",
+                      pair.first.c_str());
+            return;
+        }
     }
 
     running_.store(true);
